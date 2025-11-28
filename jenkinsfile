@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_HUB_CREDENTIALS = 'dockerhub'
+        EC2_CREDENTIALS = 'ec2-deploy-key'
+        EC2_IP = '3.110.125.61'
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from GitHub...'
+                git branch: 'master', url: 'https://github.com/Nitin201/DISCOVER-DOLLAR-ASSIGNMENT.git'
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    echo 'Building Docker images...'
+                    sh 'docker build -t nitin241/dd-mean-backend:latest ./backend'
+                    sh 'docker build -t nitin241/dd-mean-frontend:latest ./frontend'
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    echo 'Pushing images to Docker Hub...'
+                    withDockerRegistry(credentialsId: "${DOCKER_HUB_CREDENTIALS}", url: 'https://index.docker.io/v1/') {
+                        sh 'docker push nitin241/dd-mean-backend:latest'
+                        sh 'docker push nitin241/dd-mean-frontend:latest'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                echo "Deploying to EC2 instance ${EC2_IP}..."
+                sshagent(credentials: ['ec2-deploy-key']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@3.110.125.61 "
+                            cd ~/DISCOVER-DOLLAR-ASSIGNMENT &&
+                            git pull || true &&
+                            docker compose pull &&
+                            docker compose up -d &&
+                            docker image prune -f
+                        "
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment successful!'
+            echo 'App is live at: http://3.110.125.61'
+        }
+        failure {
+            echo 'Deployment failed. Check Jenkins logs for details.'
+        }
+    }
+}
