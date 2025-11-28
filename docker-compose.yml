@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: dd-mongo
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    image: YOUR_DOCKERHUB_USERNAME/dd-mean-backend:latest
+    container_name: dd-backend
+    restart: always
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/dd_db
+    depends_on:
+      - mongo
+
+  frontend:
+    image: YOUR_DOCKERHUB_USERNAME/dd-mean-frontend:latest
+    container_name: dd-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
